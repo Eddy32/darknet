@@ -1675,7 +1675,12 @@ void test_detector(char *datacfg, char *cfgfile, char *weightfile, char *filenam
             if (l.nms_kind == DEFAULT_NMS) do_nms_sort(dets, nboxes, l.classes, nms);
             else diounms_sort(dets, nboxes, l.classes, nms, l.nms_kind, l.beta_nms);
         }
+        while(1){
+        printf("ANTES");
         draw_detections_v3(im, dets, nboxes, thresh, names, alphabet, l.classes, ext_output);
+        printf("DEPOIS");
+
+
         save_image(im, "predictions");
         if (!dont_show) {
             show_image(im, "predictions");
@@ -1729,6 +1734,8 @@ void test_detector(char *datacfg, char *cfgfile, char *weightfile, char *filenam
         }
 
         if (filename) break;
+        }
+
     }
 
     if (json_file) {
@@ -1963,6 +1970,7 @@ void run_detector(int argc, char **argv)
     int ext_output = find_arg(argc, argv, "-ext_output");
     int save_labels = find_arg(argc, argv, "-save_labels");
     char* chart_path = find_char_arg(argc, argv, "-chart", 0);
+    char* classToDetect = find_char_arg(argc, argv, "-class2detect", "person");
     if (argc < 4) {
         fprintf(stderr, "usage: %s %s [train/test/valid/demo/map] [data] [cfg] [weights (optional)]\n", argv[0], argv[1]);
         return;
@@ -2011,6 +2019,9 @@ void run_detector(int argc, char **argv)
         draw_object(datacfg, cfg, weights, filename, thresh, dont_show, it_num, letter_box, benchmark_layers);
     }
     else if (0 == strcmp(argv[2], "demo")) {
+       // char classToDetect[40];
+       // strcpy(classToDetect,argv[7]);
+        printf("CLASSE A PROCURAR: %s\n ", classToDetect);
         list *options = read_data_cfg(datacfg);
         int classes = option_find_int(options, "classes", 20);
         char *name_list = option_find_str(options, "names", "data/names.list");
@@ -2019,7 +2030,7 @@ void run_detector(int argc, char **argv)
             if (strlen(filename) > 0)
                 if (filename[strlen(filename) - 1] == 0x0d) filename[strlen(filename) - 1] = 0;
         demo(cfg, weights, thresh, hier_thresh, cam_index, filename, names, classes, avgframes, frame_skip, prefix, out_filename,
-            mjpeg_port, dontdraw_bbox, json_port, dont_show, ext_output, letter_box, time_limit_sec, http_post_host, benchmark, benchmark_layers);
+            mjpeg_port, dontdraw_bbox, json_port, dont_show, ext_output, letter_box, time_limit_sec, http_post_host, benchmark, benchmark_layers,classToDetect);
 
         free_list_contents_kvp(options);
         free_list(options);

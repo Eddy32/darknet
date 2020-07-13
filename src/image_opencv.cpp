@@ -12,6 +12,7 @@
 #include <fstream>
 #include <algorithm>
 #include <atomic>
+#include <string>
 
 #include <opencv2/core/version.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
@@ -76,6 +77,154 @@ using std::endl;
 #ifndef CV_AA
 #define CV_AA cv::LINE_AA
 #endif
+
+
+///////////////////////
+#include <sstream>
+#include <curl/curl.h>
+
+#include "twilio.hh"
+
+
+namespace twilio {
+
+// Portably ignore curl response
+size_t Twilio::_null_write(
+        char *ptr, 
+        size_t size, 
+        size_t nmemb, 
+        void *userdata)
+{
+        return size*nmemb;
+}
+
+// Write curl response to a stringstream
+size_t Twilio::_stream_write(
+        char *ptr,
+        size_t size,
+        size_t nmemb,
+        void *userdata) 
+{
+        size_t response_size = size * nmemb;
+        std::stringstream *ss = (std::stringstream*)userdata;
+        ss->write(ptr, response_size);
+        return response_size;
+}
+
+// Method send_message:
+//   Returns 'true' if the result of the eventual HTTP post to Twilio is status
+//   code 200 or 201.  Either other status codes or errors in curl will cause
+//   a false result.
+//   Inputs:
+//        - to_number: Where to send the MMS or SMS
+//        - from_number: Number in your Twilio account to use as a sender.
+//        - message_body: (Max: 1600 unicode characters) The body of the MMS 
+//                        or SMS message which will be sent to the to_number.
+//
+//   Outputs:
+//        - response: Either the curl error message or the Twilio response
+//                if verbose.
+//   Optional:
+//        - picture_url: If picture URL is included, a MMS will be sent
+//        - verbose: Whether to print all the responses
+bool Twilio::send_message(
+        std::string const& to_number,
+        std::string const& from_number,
+        std::string const& message_body,
+        std::string& response,
+        std::string const& picture_url,
+        bool verbose)
+{
+        std::stringstream response_stream;
+        std::u16string converted_message_body;
+
+        // Assume UTF-8 input, convert to UCS-2 to check size
+        // See: https://www.twilio.com/docs/api/rest/sending-messages for
+        // information on Twilio body size limits.
+        try {
+                converted_message_body = utf8_to_ucs2(message_body);
+        } catch(const std::range_error& e) {
+                response = e.what();
+                return false;
+        }
+
+        if (converted_message_body.size() > 1600) {
+                response_stream << "Message body must have 1600 or fewer"
+                        << " characters. Cannot send message with "
+                        << converted_message_body.size() << " characters.";
+                response = response_stream.str();
+                return false;
+        }
+
+        CURL *curl;
+        curl_global_init(CURL_GLOBAL_ALL);
+        curl = curl_easy_init();
+
+        // Percent encode special characters
+        char *message_body_escaped = curl_easy_escape(
+                curl, 
+                message_body.c_str(), 
+                0
+        );
+
+
+        std::stringstream url;
+        std::string url_string;
+        url << "https://api.twilio.com/2010-04-01/Accounts/" << account_sid
+                << "/Messages";
+        url_string = url.str();
+
+
+        std::stringstream parameters;
+        std::string parameter_string;
+        parameters << "To=" << to_number << "&From=" << from_number 
+                << "&Body=" << message_body_escaped;
+        if (!picture_url.empty()) {
+                parameters << "&MediaUrl=" << picture_url;
+        }
+        parameter_string = parameters.str();
+
+
+        curl_easy_setopt(curl, CURLOPT_POST, 1);
+        curl_easy_setopt(curl, CURLOPT_URL, url_string.c_str());
+        curl_easy_setopt(curl, CURLOPT_POSTFIELDS, parameter_string.c_str());
+        curl_easy_setopt(curl, CURLOPT_USERNAME, account_sid.c_str());
+        curl_easy_setopt(curl, CURLOPT_PASSWORD, auth_token.c_str());
+        if (!verbose) {
+                curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, _null_write);
+        } else {
+                curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, _stream_write);
+                curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response_stream);
+        }
+
+
+        CURLcode res = curl_easy_perform(curl);
+        curl_free(message_body_escaped);
+        curl_easy_cleanup(curl);
+        long http_code = 0;
+        curl_easy_getinfo (curl, CURLINFO_RESPONSE_CODE, &http_code);
+
+        // Check for curl errors and Twilio failure status codes.
+        if (res != CURLE_OK) {
+                response = curl_easy_strerror(res);
+                return false;
+        } else if (http_code != 200 && http_code != 201) {
+                response = response_stream.str();
+                return false;
+        } else {
+                response = response_stream.str();
+                return true;
+        }
+}
+
+} // end namespace twilio
+
+
+
+//////////////////////
+
+
+
 
 extern "C" {
 
@@ -875,14 +1024,38 @@ extern "C" void save_cv_jpg(mat_cv *img_src, const char *name)
 // ====================================================================
 // Draw Detection
 // ====================================================================
-extern "C" void draw_detections_cv_v3(mat_cv* mat, detection *dets, int num, float thresh, char **names, image **alphabet, int classes, int ext_output)
+extern "C" int draw_detections_cv_v3(mat_cv* mat, detection *dets, int num, float thresh, char **names, image **alphabet, int classes, int ext_output, int current_frame,int detected_frame,char* classToDetect)
 {
+
+    
+
+
+
     try {
         cv::Mat *show_img = (cv::Mat*)mat;
         int i, j;
-        if (!show_img) return;
+        if (!show_img) return detected_frame;
         static int frame_id = 0;
         frame_id++;
+
+        int cmd;
+        std::string account_sid;
+        std::string auth_token;
+        std::string message;
+        std::string from_number;
+        std::string to_number;
+        std::string picture_url;
+        bool verbose = false;
+
+        std::string response;
+        auto twilio = std::make_shared<twilio::Twilio>(
+            "ACad7a1df5d71daf81b2d4d5bb0a2cdfe3", 
+            "07d272e5146608938a4a4b798d8d9427"
+        );
+
+
+      //  printf("CURRENT FRAME: %d e ULTIMA DETEÇÃO: %d\n",current_frame,detected_frame);
+
 
         for (i = 0; i < num; ++i) {
             char labelstr[4096] = { 0 };
@@ -900,6 +1073,24 @@ extern "C" void draw_detections_cv_v3(mat_cv* mat, detection *dets, int num, flo
                         }
                         sprintf(buff, " (%2.0f%%)", dets[i].prob[j] * 100);
                         strcat(labelstr, buff);
+
+                        std::string class_found (names[j]);
+                        //std::string classeToSMS ("person");
+                        if( class_found.compare(classToDetect) ==0 && ((current_frame >= (detected_frame + 30*60)) || (detected_frame == 0 ) )  ){
+                            printf("CLASSE: %s\n",class_found.c_str());
+                            //printf("ENCONTREI PESSOA NA FRAME %d ultima vez %d\n\n\n\n",current_frame,detected_frame);
+                            printf("PESSOA DETETADA - INICIO DE PROTOCOLO DE AVISO");
+                            bool message_success = twilio->send_message(
+                                    "+351913679641", 
+                                    "+17207042069", 
+                                    "Pessoa em movimento detetada. Cuidado!",
+                                    response,
+                                    picture_url,
+                                    verbose
+                            );
+                            detected_frame = current_frame;
+                        }
+                        
                         printf("%s: %.0f%% ", names[j], dets[i].prob[j] * 100);
                         if (dets[i].track_id) printf("(track = %d, sim = %f) ", dets[i].track_id, dets[i].sim);
                     }
@@ -1014,6 +1205,9 @@ extern "C" void draw_detections_cv_v3(mat_cv* mat, detection *dets, int num, flo
     catch (...) {
         cerr << "OpenCV exception: draw_detections_cv_v3() \n";
     }
+
+    //printf("VOU RETORNAR %d",detected_frame);
+    return detected_frame;
 }
 // ----------------------------------------
 
