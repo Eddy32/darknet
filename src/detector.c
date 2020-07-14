@@ -8,6 +8,8 @@
 #include "box.h"
 #include "demo.h"
 #include "option_list.h"
+#include <string.h>
+#include <stdio.h>
 
 #ifndef __COMPAR_FN_T
 #define __COMPAR_FN_T
@@ -18,6 +20,38 @@ typedef __compar_fn_t comparison_fn_t;
 #endif
 
 #include "http_stream.h"
+
+
+//itoa
+ void reverse(char s[])
+ {
+     int i, j;
+     char c;
+ 
+     for (i = 0, j = strlen(s)-1; i<j; i++, j--) {
+         c = s[i];
+         s[i] = s[j];
+         s[j] = c;
+     }
+ }
+ 
+void itoa(int n, char s[])
+ {
+     int i, sign;
+ 
+     if ((sign = n) < 0)  /* record sign */
+         n = -n;          /* make n positive */
+     i = 0;
+     do {       /* generate digits in reverse order */
+         s[i++] = n % 10 + '0';   /* get next digit */
+     } while ((n /= 10) > 0);     /* delete it */
+     if (sign < 0)
+         s[i++] = '-';
+     s[i] = '\0';
+     reverse(s);
+ }
+
+//
 
 int check_mistakes = 0;
 
@@ -1686,9 +1720,15 @@ void test_detector(char *datacfg, char *cfgfile, char *weightfile, char *filenam
         //printf("DEPOIS %d",current_frame);
 
 
-        save_image(im, "predictions");
+        char picname[40];
+        strcpy(picname,"");
+        char snum[5];
+        itoa(current_frame,snum);
+        strcat(picname,"predictions");
+        strcat(picname,snum);
+        save_image(im, picname);
         if (!dont_show) {
-            show_image(im, "predictions");
+            show_image(im, picname);
         }
 
         if (json_file) {
