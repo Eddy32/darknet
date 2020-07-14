@@ -1677,6 +1677,7 @@ void test_detector(char *datacfg, char *cfgfile, char *weightfile, char *filenam
             strtok(input, "\n");
         }
         while(1){
+        double time2 = get_time_point();
 
         //image im;
         //image sized = load_image_resize(input, net.w, net.h, net.c, &im);
@@ -1780,6 +1781,8 @@ void test_detector(char *datacfg, char *cfgfile, char *weightfile, char *filenam
         }
 
         //if (filename) break;
+        printf("\n\nPredicted in %lf milli-seconds in final loop.\n\n", ((double)get_time_point() - time2) / 1000);
+
         }
 
     }
