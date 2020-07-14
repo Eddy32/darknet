@@ -1676,6 +1676,8 @@ void test_detector(char *datacfg, char *cfgfile, char *weightfile, char *filenam
             if (!input) break;
             strtok(input, "\n");
         }
+        while(1){
+
         //image im;
         //image sized = load_image_resize(input, net.w, net.h, net.c, &im);
         image im = load_image(input, 0, 0, net.c);
@@ -1713,7 +1715,6 @@ void test_detector(char *datacfg, char *cfgfile, char *weightfile, char *filenam
             else diounms_sort(dets, nboxes, l.classes, nms, l.nms_kind, l.beta_nms);
         }
      
-        while(1){
         //printf("ANTES %d",current_frame);
         detected_frame = draw_detections_v3(im, dets, nboxes, thresh, names, alphabet, l.classes, ext_output, current_frame, detected_frame,"person");
         current_frame+=1;
@@ -1778,7 +1779,7 @@ void test_detector(char *datacfg, char *cfgfile, char *weightfile, char *filenam
             destroy_all_windows_cv();
         }
 
-        if (filename) break;
+        //if (filename) break;
         }
 
     }
