@@ -1680,10 +1680,10 @@ void test_detector(char *datacfg, char *cfgfile, char *weightfile, char *filenam
         }
      
         while(1){
-        printf("ANTES %d",current_frame);
+        //printf("ANTES %d",current_frame);
         detected_frame = draw_detections_v3(im, dets, nboxes, thresh, names, alphabet, l.classes, ext_output, current_frame, detected_frame,"person");
         current_frame+=1;
-        printf("DEPOIS %d",current_frame);
+        //printf("DEPOIS %d",current_frame);
 
 
         save_image(im, "predictions");

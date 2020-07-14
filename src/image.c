@@ -475,14 +475,14 @@ int draw_detections_v3(image im, detection *dets, int num, float thresh, char **
         bool verbose = false;
         char *account_sid = "ACad7a1df5d71daf81b2d4d5bb0a2cdfe3";
         char *auth_token = "0cda0896f287c83db4247d54e3442f47";
-        char *message = "Danger. Save yourself!!";
+        char *message = "Pessoa detetada. Perigo iminente";
         char *from_number = "+17207042069";
         char *to_number = "+351913679641";
         char *picture_url = NULL;
 
         char strClasses[500];
 
-        printf("CURRENT FRAME = %d e detect_fram %d  \n\n\n\n\n\n\n",current_frame,detected_frame);
+      //  printf("CURRENT FRAME = %d e detect_fram %d  \n\n\n\n\n\n\n",current_frame,detected_frame);
     
 
        /* twilio_send_message(account_sid,
@@ -515,9 +515,9 @@ int draw_detections_v3(image im, detection *dets, int num, float thresh, char **
         char class_found[40];
         strcpy(class_found,names[best_class]);
         //std::string classeToSMS ("person");
-        if( strcmp(class_found,classToDetect) ==0 && ( ((current_frame >= (detected_frame + 10)) && detected_frame ) || (detected_frame == 0 ))  ){
-            printf("CLASSE: %s\n",class_found);
-            printf("ENCONTREI PESSOA NA FRAME %d ultima vez %d\n\n\n\n",current_frame,detected_frame);
+        if( strcmp(class_found,classToDetect) ==0 && ( ((current_frame >= (detected_frame + 60)) && detected_frame ) || (detected_frame == 0 ))  ){
+           // printf("CLASSE: %s\n",class_found);
+          //  printf("ENCONTREI PESSOA NA FRAME %d ultima vez %d\n\n\n\n",current_frame,detected_frame);
             printf("PESSOA DETETADA - INICIO DE PROTOCOLO DE AVISO");
 
             twilio_send_message(account_sid,
@@ -654,7 +654,7 @@ int draw_detections_v3(image im, detection *dets, int num, float thresh, char **
             }
     }
     free(selected_detections);
-    printf("VOU RETORNAR: %d\n",detected_frame);
+    //printf("VOU RETORNAR: %d\n",detected_frame);
     return detected_frame;
 }
 
