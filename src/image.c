@@ -470,17 +470,19 @@ int compare_by_probs(const void *a_ptr, const void *b_ptr) {
     return delta < 0 ? -1 : delta > 0 ? 1 : 0;
 }
 
-void draw_detections_v3(image im, detection *dets, int num, float thresh, char **names, image **alphabet, int classes, int ext_output)
+int draw_detections_v3(image im, detection *dets, int num, float thresh, char **names, image **alphabet, int classes, int ext_output, int current_frame, int detected_frame, char* classToDetect)
 {   
         bool verbose = false;
         char *account_sid = "ACad7a1df5d71daf81b2d4d5bb0a2cdfe3";
-        char *auth_token = "07d272e5146608938a4a4b798d8d9427";
-        char *message = "HEY MAN, DANGER INCOMING";
+        char *auth_token = "0cda0896f287c83db4247d54e3442f47";
+        char *message = "Danger. Save yourself!!";
         char *from_number = "+17207042069";
         char *to_number = "+351913679641";
         char *picture_url = NULL;
 
         char strClasses[500];
+
+        printf("CURRENT FRAME = %d e detect_fram %d  \n\n\n\n\n\n\n",current_frame,detected_frame);
     
 
        /* twilio_send_message(account_sid,
@@ -507,6 +509,32 @@ void draw_detections_v3(image im, detection *dets, int num, float thresh, char *
        // for(int j=0;names[j]!=NULL;j++)
           //  printf("AQUI: %s %d %s ",names[j],i,selected_detections[j]);
         strcat(strClasses,names[best_class]);
+
+
+        //////////twilio
+        char class_found[40];
+        strcpy(class_found,names[best_class]);
+        //std::string classeToSMS ("person");
+        if( strcmp(class_found,classToDetect) ==0 && ( ((current_frame >= (detected_frame + 10)) && detected_frame ) || (detected_frame == 0 ))  ){
+            printf("CLASSE: %s\n",class_found);
+            printf("ENCONTREI PESSOA NA FRAME %d ultima vez %d\n\n\n\n",current_frame,detected_frame);
+            printf("PESSOA DETETADA - INICIO DE PROTOCOLO DE AVISO");
+
+            twilio_send_message(account_sid,
+                                auth_token,
+                                message,
+                                from_number,
+                                to_number,
+                                picture_url,
+                                verbose
+            );
+            detected_frame = current_frame;
+        }
+        ////////////////
+    
+
+
+
         printf("%s: %.0f%%", names[best_class],    selected_detections[i].det.prob[best_class] * 100);
         if (ext_output)
             printf("\t(left_x: %4.0f   top_y: %4.0f   width: %4.0f   height: %4.0f)\n",
@@ -626,6 +654,8 @@ void draw_detections_v3(image im, detection *dets, int num, float thresh, char *
             }
     }
     free(selected_detections);
+    printf("VOU RETORNAR: %d\n",detected_frame);
+    return detected_frame;
 }
 
 void draw_detections(image im, int num, float thresh, box *boxes, float **probs, char **names, image **alphabet, int classes)

@@ -1592,6 +1592,9 @@ void calc_anchors(char *datacfg, int num_of_clusters, int width, int height, int
 void test_detector(char *datacfg, char *cfgfile, char *weightfile, char *filename, float thresh,
     float hier_thresh, int dont_show, int ext_output, int save_labels, char *outfile, int letter_box, int benchmark_layers)
 {
+       int current_frame = 1;
+        int detected_frame = 0;
+
     list *options = read_data_cfg(datacfg);
     char *name_list = option_find_str(options, "names", "data/names.list");
     int names_size = 0;
@@ -1675,10 +1678,12 @@ void test_detector(char *datacfg, char *cfgfile, char *weightfile, char *filenam
             if (l.nms_kind == DEFAULT_NMS) do_nms_sort(dets, nboxes, l.classes, nms);
             else diounms_sort(dets, nboxes, l.classes, nms, l.nms_kind, l.beta_nms);
         }
+     
         while(1){
-        printf("ANTES");
-        draw_detections_v3(im, dets, nboxes, thresh, names, alphabet, l.classes, ext_output);
-        printf("DEPOIS");
+        printf("ANTES %d",current_frame);
+        detected_frame = draw_detections_v3(im, dets, nboxes, thresh, names, alphabet, l.classes, ext_output, current_frame, detected_frame,"person");
+        current_frame+=1;
+        printf("DEPOIS %d",current_frame);
 
 
         save_image(im, "predictions");
@@ -1887,7 +1892,7 @@ void draw_object(char *datacfg, char *cfgfile, char *weightfile, char *filename,
             if (l.nms_kind == DEFAULT_NMS) do_nms_sort(dets, nboxes, l.classes, nms);
             else diounms_sort(dets, nboxes, l.classes, nms, l.nms_kind, l.beta_nms);
         }
-        draw_detections_v3(sized, dets, nboxes, thresh, names, alphabet, l.classes, 1);
+        draw_detections_v3(sized, dets, nboxes, thresh, names, alphabet, l.classes, 1,0,0,"person");
         save_image(sized, "pre_predictions");
         if (!dont_show) {
             show_image(sized, "pre_predictions");
