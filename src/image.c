@@ -515,7 +515,7 @@ int draw_detections_v3(image im, detection *dets, int num, float thresh, char **
         char class_found[40];
         strcpy(class_found,names[best_class]);
         //std::string classeToSMS ("person");
-        if( strcmp(class_found,classToDetect) ==0 && ( ((current_frame >= (detected_frame + 60)) && detected_frame ) || (detected_frame == 0 ))  ){
+        if( strcmp(class_found,classToDetect) ==0 && ( ((current_frame >= (detected_frame + 10)) && detected_frame ) || (detected_frame == 0 ))  ){
            // printf("CLASSE: %s\n",class_found);
           //  printf("ENCONTREI PESSOA NA FRAME %d ultima vez %d\n\n\n\n",current_frame,detected_frame);
             printf("PESSOA DETETADA - INICIO DE PROTOCOLO DE AVISO");
