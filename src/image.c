@@ -470,6 +470,21 @@ int compare_by_probs(const void *a_ptr, const void *b_ptr) {
     return delta < 0 ? -1 : delta > 0 ? 1 : 0;
 }
 
+int verifyClass(char* classFound, char* desiredClasses){
+    char delim[] = "/";
+    char str2[40];
+    strcpy (str2,desiredClasses);
+    char *ptr = strtok(str2, delim);
+    while(ptr != NULL){
+		if(!strcmp(ptr,classFound))
+		    return 1;
+		ptr = strtok(NULL, delim);
+	}
+	
+	return 0;
+    
+}
+
 int draw_detections_v3(image im, detection *dets, int num, float thresh, char **names, image **alphabet, int classes, int ext_output, int current_frame, int detected_frame, char* classToDetect)
 {   
         bool verbose = false;
@@ -515,7 +530,7 @@ int draw_detections_v3(image im, detection *dets, int num, float thresh, char **
         char class_found[40];
         strcpy(class_found,names[best_class]);
         //std::string classeToSMS ("person");
-        if( strcmp(class_found,classToDetect) ==0 && ( ((current_frame >= (detected_frame + 10)) && detected_frame ) || (detected_frame == 0 ))  ){
+        if( verifyClass(class_found,classToDetect) && ( ((current_frame >= (detected_frame + 10)) && detected_frame ) || (detected_frame == 0 ))  ){
            // printf("CLASSE: %s\n",class_found);
           //  printf("ENCONTREI PESSOA NA FRAME %d ultima vez %d\n\n\n\n",current_frame,detected_frame);
             printf("PESSOA DETETADA - INICIO DE PROTOCOLO DE AVISO");
