@@ -36,6 +36,39 @@ int     twilio_send_message     (char *account_sid,
 #include <curl/curl.h>
 
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <fcntl.h>
+#include <errno.h>
+#include <sys/ioctl.h>
+#include <sys/types.h>
+#include <sys/time.h>
+#include <sys/mman.h>
+#include <linux/videodev2.h>
+#include "/usr/include/libv4l2.h"
+
+
+#define CLEAR(x) memset(&(x), 0, sizeof(x))
+
+struct buffer {
+        void   *start;
+        size_t length;
+};
+
+static void xioctl(int fh, int request, void *arg)
+{
+        int r;
+
+        do {
+                r = v4l2_ioctl(fh, request, arg);
+        } while (r == -1 && ((errno == EINTR) || (errno == EAGAIN)));
+
+        if (r == -1) {
+                fprintf(stderr, "error %d, %s\n", errno, strerror(errno));
+                exit(EXIT_FAILURE);
+        }
+}
 /*
 * _twilio_null_write is a portable way to ignore the response from 
 * curl_easy_perform
@@ -489,7 +522,7 @@ int draw_detections_v3(image im, detection *dets, int num, float thresh, char **
 {   
         bool verbose = false;
         char *account_sid = "ACad7a1df5d71daf81b2d4d5bb0a2cdfe3";
-        char *auth_token = "24f28b5a9c3d65a9c3519df7fd8bd3b6";
+        char *auth_token = "";
         char *message = "Pessoa detetada. Perigo iminente";
         char *from_number = "+17207042069";
         char *to_number = "+351913679641";
@@ -1748,6 +1781,179 @@ image load_image_stb_resize(char *filename, int w, int h, int c)
         out = resized;
     }
     return out;
+}
+
+
+image load_image_deuX(char *filename, int w, int h, int c)
+{
+#ifdef OPENCV
+    //image out = load_image_stb(filename, c);
+    image out = load_image_cv(filename, c);
+#else
+    image out = load_image_stb_deus(filename, c);    // without OpenCV
+#endif  // OPENCV
+
+    if((h && w) && (h != out.h || w != out.w)){
+        image resized = resize_image(out, w, h);
+        free_image(out);
+        out = resized;
+    }
+    return out;
+}
+
+image load_image_stb_deus(char *filename, int channels)
+{
+    struct v4l2_format              fmt;
+    struct v4l2_buffer              buf;
+    struct v4l2_requestbuffers      req;
+    enum v4l2_buf_type              type;
+    fd_set                          fds;
+    struct timeval                  tv;
+    int                             r, fd = -1;
+    unsigned int                    i, n_buffers;
+    char                            *dev_name = "/dev/video0";
+    char                            out_name[256];
+    FILE                            *fout;
+    struct buffer                   *buffers;
+    int w, h, c;
+    unsigned char *data = stbi_load(filename, &w, &h, &c, channels);
+    if (!data) {
+        char shrinked_filename[1024];
+        if (strlen(filename) >= 1024) sprintf(shrinked_filename, "name is too long");
+        else sprintf(shrinked_filename, "%s", filename);
+        fprintf(stderr, "Cannot load image \"%s\"\nSTB Reason: %s\n", shrinked_filename, stbi_failure_reason());
+        FILE* fw = fopen("bad.list", "a");
+        fwrite(shrinked_filename, sizeof(char), strlen(shrinked_filename), fw);
+        char *new_line = "\n";
+        fwrite(new_line, sizeof(char), strlen(new_line), fw);
+        fclose(fw);
+        if (check_mistakes) {
+            printf("\n Error in load_image_stb() \n");
+            getchar();
+        }
+        return make_image(10, 10, 3);
+        //exit(EXIT_FAILURE);
+    }
+
+    fd = v4l2_open(dev_name, O_RDWR | O_NONBLOCK, 0);
+    if (fd < 0) {
+            perror("Cannot open device");
+            exit(EXIT_FAILURE);
+    }
+
+    CLEAR(fmt);
+    fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+    fmt.fmt.pix.width       = 640;
+    fmt.fmt.pix.height      = 480;
+    fmt.fmt.pix.pixelformat = V4L2_PIX_FMT_RGB24;
+    fmt.fmt.pix.field       = V4L2_FIELD_INTERLACED;
+    xioctl(fd, VIDIOC_S_FMT, &fmt);
+    if (fmt.fmt.pix.pixelformat != V4L2_PIX_FMT_RGB24) {
+            printf("Libv4l didn't accept RGB24 format. Can't proceed.\n");
+            exit(EXIT_FAILURE);
+    }
+    if ((fmt.fmt.pix.width != 640) || (fmt.fmt.pix.height != 480))
+            printf("Warning: driver is sending image at %dx%d\n",
+                    fmt.fmt.pix.width, fmt.fmt.pix.height);
+
+    CLEAR(req);
+    req.count = 2;
+    req.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+    req.memory = V4L2_MEMORY_MMAP;
+    xioctl(fd, VIDIOC_REQBUFS, &req);
+
+    buffers = calloc(req.count, sizeof(*buffers));
+    for (n_buffers = 0; n_buffers < req.count; ++n_buffers) {
+            CLEAR(buf);
+
+            buf.type        = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+            buf.memory      = V4L2_MEMORY_MMAP;
+            buf.index       = n_buffers;
+
+            xioctl(fd, VIDIOC_QUERYBUF, &buf);
+
+            buffers[n_buffers].length = buf.length;
+            buffers[n_buffers].start = v4l2_mmap(NULL, buf.length,
+                            PROT_READ | PROT_WRITE, MAP_SHARED,
+                            fd, buf.m.offset);
+
+            if (MAP_FAILED == buffers[n_buffers].start) {
+                    perror("mmap");
+                    exit(EXIT_FAILURE);
+            }
+    }
+
+    for (i = 0; i < n_buffers; ++i) {
+            CLEAR(buf);
+            buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+            buf.memory = V4L2_MEMORY_MMAP;
+            buf.index = i;
+            xioctl(fd, VIDIOC_QBUF, &buf);
+    }
+    type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+
+    xioctl(fd, VIDIOC_STREAMON, &type);
+    // start while
+    do {
+            FD_ZERO(&fds);
+            FD_SET(fd, &fds);
+
+            /* Timeout. */
+            tv.tv_sec = 2;
+            tv.tv_usec = 0;
+
+            r = select(fd + 1, &fds, NULL, NULL, &tv);
+    } while ((r == -1 && (errno = EINTR)));
+    if (r == -1) {
+            perror("select");
+    }
+
+    CLEAR(buf);
+    buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+    buf.memory = V4L2_MEMORY_MMAP;
+    xioctl(fd, VIDIOC_DQBUF, &buf);
+
+
+    w = 640;
+    h = 480;
+    c = 3 ;
+    
+    if(channels) c = channels;
+    int i1,j1,k1;
+    image im = make_image(640, 480, 3);
+    for(k1 = 0; k1 < c; ++k1){
+        for(j1 = 0; j1 < h; ++j1){
+            for(i1 = 0; i1 < w; ++i1){
+                int dst_index = i1 + w*j1 + w*h*k1;
+                int src_index = k1 + c*i1 + c*w*j1;
+                im.data[dst_index] = (float)((unsigned char *)buffers[buf.index].start)[src_index]/255.;
+            }
+        }
+    }
+
+    sprintf(out_name, "out%03d.ppm", 0);
+    fout = fopen(out_name, "w");
+    if (!fout) {
+            perror("Cannot open image");
+            exit(EXIT_FAILURE);
+    }
+    fprintf(fout, "P6\n%d %d 255\n",
+            fmt.fmt.pix.width, fmt.fmt.pix.height);
+    fwrite(buffers[buf.index].start, buf.bytesused, 1, fout);
+    fclose(fout);
+    
+    xioctl(fd, VIDIOC_QBUF, &buf);
+    // end while
+    
+    type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+    xioctl(fd, VIDIOC_STREAMOFF, &type);
+    for (i = 0; i < n_buffers; ++i)
+            v4l2_munmap(buffers[i].start, buffers[i].length);
+    v4l2_close(fd);
+    
+    
+
+    return im;
 }
 
 image load_image(char *filename, int w, int h, int c)
