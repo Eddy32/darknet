@@ -496,7 +496,8 @@ int main(int argc, char **argv)
 		int ext_output = find_arg(argc, argv, "-ext_output");
         char *filename = (argc > 4) ? argv[4]: 0;
         char* class2identify = find_char_arg(argc, argv, "-class2identify","person");
-        test_detector("cfg/coco.data", argv[2], argv[3], filename, thresh, 0.5, 0, ext_output, 0, NULL, 0, 0,class2identify);
+        int send_sms = find_int_arg(argc, argv, "-send_sms", 1);
+        test_detector("cfg/coco.data", argv[2], argv[3], filename, thresh, 0.5, 0, ext_output, 0, NULL, 0, 0,class2identify, send_sms);
     } else if (0 == strcmp(argv[1], "cifar")){
         run_cifar(argc, argv);
     } else if (0 == strcmp(argv[1], "go")){

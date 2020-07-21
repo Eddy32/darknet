@@ -485,11 +485,11 @@ int verifyClass(char* classFound, char* desiredClasses){
     
 }
 
-int draw_detections_v3(image im, detection *dets, int num, float thresh, char **names, image **alphabet, int classes, int ext_output, int current_frame, int detected_frame, char* classToDetect)
+int draw_detections_v3(image im, detection *dets, int num, float thresh, char **names, image **alphabet, int classes, int ext_output, int current_frame, int detected_frame, char* classToDetect, int send_sms, int* worth_saving )
 {   
         bool verbose = false;
         char *account_sid = "ACad7a1df5d71daf81b2d4d5bb0a2cdfe3";
-        char *auth_token = "0cda0896f287c83db4247d54e3442f47";
+        char *auth_token = "24f28b5a9c3d65a9c3519df7fd8bd3b6";
         char *message = "Pessoa detetada. Perigo iminente";
         char *from_number = "+17207042069";
         char *to_number = "+351913679641";
@@ -530,19 +530,25 @@ int draw_detections_v3(image im, detection *dets, int num, float thresh, char **
         char class_found[40];
         strcpy(class_found,names[best_class]);
         //std::string classeToSMS ("person");
-        if( verifyClass(class_found,classToDetect) && ( ((current_frame >= (detected_frame + 10)) && detected_frame ) || (detected_frame == 0 ))  ){
+        int flag=verifyClass(class_found,classToDetect);
+        if(flag)
+            (*worth_saving)=1;
+
+            
+
+        if( flag && ( ((current_frame >= (detected_frame + 10)) && detected_frame ) || (detected_frame == 0 ))  ){
            // printf("CLASSE: %s\n",class_found);
           //  printf("ENCONTREI PESSOA NA FRAME %d ultima vez %d\n\n\n\n",current_frame,detected_frame);
             printf("PESSOA DETETADA - INICIO DE PROTOCOLO DE AVISO");
-
-            twilio_send_message(account_sid,
-                                auth_token,
-                                message,
-                                from_number,
-                                to_number,
-                                picture_url,
-                                verbose
-            );
+            if(send_sms)
+                twilio_send_message(account_sid,
+                                    auth_token,
+                                    message,
+                                    from_number,
+                                    to_number,
+                                    picture_url,
+                                    verbose
+                );
             detected_frame = current_frame;
         }
         ////////////////

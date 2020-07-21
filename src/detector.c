@@ -1624,7 +1624,7 @@ void calc_anchors(char *datacfg, int num_of_clusters, int width, int height, int
 
 
 void test_detector(char *datacfg, char *cfgfile, char *weightfile, char *filename, float thresh,
-    float hier_thresh, int dont_show, int ext_output, int save_labels, char *outfile, int letter_box, int benchmark_layers,char* class2identify)
+    float hier_thresh, int dont_show, int ext_output, int save_labels, char *outfile, int letter_box, int benchmark_layers,char* class2identify, int send_sms)
 {
        int current_frame = 1;
         int detected_frame = 0;
@@ -1717,7 +1717,8 @@ void test_detector(char *datacfg, char *cfgfile, char *weightfile, char *filenam
         }
      
         //printf("ANTES %d",current_frame);
-        detected_frame = draw_detections_v3(im, dets, nboxes, thresh, names, alphabet, l.classes, ext_output, current_frame, detected_frame,class2identify);
+        int worth_saving = 0;
+        detected_frame = draw_detections_v3(im, dets, nboxes, thresh, names, alphabet, l.classes, ext_output, current_frame, detected_frame,class2identify,send_sms,&worth_saving);
         current_frame+=1;
         //printf("DEPOIS %d",current_frame);
 
@@ -1728,7 +1729,8 @@ void test_detector(char *datacfg, char *cfgfile, char *weightfile, char *filenam
         itoa(current_frame,snum);
         strcat(picname,"predictions");
         strcat(picname,snum);
-        save_image(im, picname);
+        if(worth_saving)
+            save_image(im, picname);
         if (!dont_show) {
             show_image(im, picname);
         }
@@ -1936,7 +1938,8 @@ void draw_object(char *datacfg, char *cfgfile, char *weightfile, char *filename,
             if (l.nms_kind == DEFAULT_NMS) do_nms_sort(dets, nboxes, l.classes, nms);
             else diounms_sort(dets, nboxes, l.classes, nms, l.nms_kind, l.beta_nms);
         }
-        draw_detections_v3(sized, dets, nboxes, thresh, names, alphabet, l.classes, 1,0,0,"person");
+        int worth_saving;
+        draw_detections_v3(sized, dets, nboxes, thresh, names, alphabet, l.classes, 1,0,0,"person",1,worth_saving);
         save_image(sized, "pre_predictions");
         if (!dont_show) {
             show_image(sized, "pre_predictions");
@@ -2057,7 +2060,7 @@ void run_detector(int argc, char **argv)
         if (strlen(weights) > 0)
             if (weights[strlen(weights) - 1] == 0x0d) weights[strlen(weights) - 1] = 0;
     char *filename = (argc > 6) ? argv[6] : 0;
-    if (0 == strcmp(argv[2], "test")) test_detector(datacfg, cfg, weights, filename, thresh, hier_thresh, dont_show, ext_output, save_labels, outfile, letter_box, benchmark_layers,"person");
+    if (0 == strcmp(argv[2], "test")) test_detector(datacfg, cfg, weights, filename, thresh, hier_thresh, dont_show, ext_output, save_labels, outfile, letter_box, benchmark_layers,"person",1);
     else if (0 == strcmp(argv[2], "train")) train_detector(datacfg, cfg, weights, gpus, ngpus, clear, dont_show, calc_map, mjpeg_port, show_imgs, benchmark_layers, chart_path);
     else if (0 == strcmp(argv[2], "valid")) validate_detector(datacfg, cfg, weights, outfile);
     else if (0 == strcmp(argv[2], "recall")) validate_detector_recall(datacfg, cfg, weights);
